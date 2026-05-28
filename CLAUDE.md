@@ -7,6 +7,7 @@ Guía de operación para el agente Claude Code en este proyecto de curso.
 ## Contexto del Proyecto
 
 **Aplicación bajo prueba:** Poleras Store — e-commerce de poleras (camisetas)
+**Descripción:** Poleras Store es una tienda online que vende poleras de calidad, cómodas y a bajo precio. Todos los servicios están montados en local para que el equipo de Performance Testing inicie sus actividades. El equipo de ingeniería necesita una evaluación para saber si la plataforma podrá resistir el próximo evento de Black Friday.
 **Stack del sistema:** Node.js + Express + PostgreSQL · 5 microservicios independientes
 
 ### Microservicios y puertos
