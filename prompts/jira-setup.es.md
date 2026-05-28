@@ -98,18 +98,73 @@ Por favor crea lo siguiente siguiendo buenas prácticas de Scrum:
   - Criterios de aceptación: reporte técnico con bottlenecks y recomendaciones, reporte ejecutivo con riesgo/impacto para stakeholders, veredicto documentado.
   - Story Points: 8
 
-**4. Tareas detalladas dentro de HU-3** (una por servicio + e2e)
+**4. Tarea de SLAs dentro de HU-1** (crear primero — es la fuente de verdad)
 
-Crea las siguientes tareas como hijas de HU-3:
+Crea esta tarea como hija de HU-1 **antes que cualquier otra tarea de script o ejecución**:
 
-- `[Script] users-api — auth.test.js`: Script k6 para `POST /api/auth/login`. SLA: P95 < 200ms, error rate < 0.5%. Dataset: `data/users.json`.
-- `[Script] products-service — products.test.js`: Script k6 para `GET /api/products`. SLA: P95 < 100ms, error rate < 0.5%. No requiere autenticación.
-- `[Script] cart-service — cart.test.js`: Script k6 para `POST /api/cart/items` y `GET /api/cart`. SLA: P95 < 150ms, error rate < 0.5%. Requiere JWT.
-- `[Script] orders-service — orders.test.js`: Script k6 para `POST /api/orders`. SLA: P95 < 200ms, error rate < 1%. Requiere JWT y carrito válido. Llama a cart-service.
-- `[Script] payments-service — payments.test.js`: Script k6 para `POST /api/payments/process`. SLA: P95 < 300ms, error rate < 0.1%. Servicio crítico — requiere JWT y orden válida.
-- `[Script] e2e — e2e.test.js`: Script k6 que ejecuta el flujo completo de compra (login → browse → cart → order → payment). SLA: P95 < 1000ms total, error rate < 1%.
+- `[SLA] Definir SLAs y SLOs por microservicio`: Documentar los thresholds de performance aceptados para cada servicio. Estos valores son la fuente de verdad para todos los scripts k6, tickets de ejecución y tickets de análisis.
+  - Descripción debe incluir la tabla de SLAs:
+    | Servicio | Endpoint | P95 | Error rate |
+    |---|---|---|---|
+    | users-api | POST /api/auth/login | < 200ms | < 0.5% |
+    | products-service | GET /api/products | < 100ms | < 0.5% |
+    | cart-service | POST/GET /api/cart | < 150ms | < 0.5% |
+    | orders-service | POST /api/orders | < 200ms | < 1% |
+    | payments-service | POST /api/payments/process | < 300ms | < 0.1% |
+    | e2e (flujo completo) | login→cart→order→payment | < 1000ms | < 1% |
+  - Criterios de aceptación: tabla aprobada por el equipo, valores alineados con arquitectura del sistema.
 
-**5. Organización en Sprints** (3 sprints de 2 semanas)
+**5. Tareas detalladas dentro de HU-3** (una por servicio + e2e)
+
+Crea las siguientes tareas como hijas de HU-3. **Regla de trazabilidad:** la descripción de cada tarea debe comenzar con un bloque de referencia al ticket de SLAs (creado en el punto 4) indicando los thresholds que aplican para ese servicio. Además, cada tarea debe tener un issue link formal tipo **"Relates"** hacia el ticket de SLAs.
+
+Formato del bloque de referencia al inicio de cada descripción:
+```
+ℹ️ REFERENCIA TÉCNICA — Lee el ticket de SLAs (HU-1)
+Los thresholds para este servicio están definidos y aprobados en ese ticket: [indicar P95 y error rate del servicio].
+Los valores deben usarse exactamente en el bloque de `thresholds` del script k6.
+```
+
+- `[Script] users-api — auth.test.js`: Script k6 para `POST /api/auth/login`. SLA: P95 < 200ms, error rate < 0.5%. Dataset: `data/users.json`. Guarda el JWT para uso en servicios posteriores. Issue link "Relates" → ticket de SLAs.
+- `[Script] products-service — products.test.js`: Script k6 para `GET /api/products`. SLA: P95 < 100ms, error rate < 0.5%. No requiere autenticación. Issue link "Relates" → ticket de SLAs.
+- `[Script] cart-service — cart.test.js`: Script k6 para `POST /api/cart/items` y `GET /api/cart`. SLA: P95 < 150ms, error rate < 0.5%. Requiere JWT. Issue link "Relates" → ticket de SLAs.
+- `[Script] orders-service — orders.test.js`: Script k6 para `POST /api/orders`. SLA: P95 < 200ms, error rate < 1%. Requiere JWT y carrito válido. Llama a cart-service. Issue link "Relates" → ticket de SLAs.
+- `[Script] payments-service — payments.test.js`: Script k6 para `POST /api/payments/process`. SLA: P95 < 300ms, error rate < 0.1%. Servicio crítico — requiere JWT y orden válida. Issue link "Relates" → ticket de SLAs.
+- `[Script] e2e — e2e.test.js`: Script k6 para el flujo completo (login → browse → cart → order → payment). SLA: P95 < 1000ms total, error rate < 1%. Issue link "Relates" → ticket de SLAs.
+
+**6. Tareas detalladas dentro de HU-4** (ejecución por tipo de prueba)
+
+Crea las siguientes tareas como hijas de HU-4. Cada tarea debe tener issue links **"Relates"** hacia el ticket de SLAs (HU-1) y hacia el script correspondiente (HU-3), y su descripción debe iniciar con el bloque de referencia:
+```
+ℹ️ REFERENCIA TÉCNICA
+- SLAs de referencia: ver ticket de SLAs (HU-1)
+- Script a ejecutar: ver ticket del script correspondiente (HU-3)
+Los thresholds que debe cumplir esta ejecución están definidos en el ticket de SLAs.
+```
+
+- `[Ejecución] Smoke Test — todos los servicios`: 2 VUs × 1 min por servicio. Validar que todos los scripts corren sin errores. Criterio de éxito: error rate = 0%.
+- `[Ejecución] Load Test — todos los servicios`: 100 VUs × 10 min. Validar comportamiento bajo carga normal. Criterio de éxito: todos los thresholds del ticket de SLAs cumplidos.
+- `[Ejecución] Stress Test — identificar punto de quiebre`: Incrementar VUs hasta degradación. Documentar el límite del sistema.
+- `[Ejecución] Spike Test — simular pico Black Friday`: 2500 VUs en 2 minutos. Evaluar comportamiento bajo pico extremo.
+- `[Ejecución] Soak Test — validar estabilidad prolongada`: 50 VUs × 2 horas. Detectar memory leaks o degradación progresiva.
+
+**7. Tareas detalladas dentro de HU-5** (análisis por tipo de prueba)
+
+Crea las siguientes tareas como hijas de HU-5. Cada tarea debe tener issue links **"Relates"** hacia el ticket de SLAs (HU-1) y hacia la tarea de ejecución correspondiente (HU-4), y su descripción debe iniciar con:
+```
+ℹ️ REFERENCIA TÉCNICA
+- SLAs de referencia: ver ticket de SLAs (HU-1)
+- Resultados a analizar: ver ticket de ejecución correspondiente (HU-4)
+El análisis debe contrastar los resultados obtenidos contra los thresholds definidos en el ticket de SLAs.
+```
+
+- `[Análisis] Resultados Smoke Test`: Verificar que todos los scripts ejecutaron sin errores. Confirmar entorno listo para pruebas de carga.
+- `[Análisis] Resultados Load Test`: Comparar P95 y error rate contra SLAs. Identificar servicios que no cumplen thresholds.
+- `[Análisis] Resultados Stress Test`: Documentar punto de quiebre, comportamiento de recuperación y servicios más vulnerables.
+- `[Análisis] Resultados Spike Test`: Evaluar impacto del pico Black Friday. Emitir riesgo estimado para el evento real.
+- `[Análisis] Reporte Final — Veredicto Go/No-Go`: Consolidar hallazgos de todas las ejecuciones. Generar reporte ejecutivo y técnico. Emitir veredicto para Black Friday.
+
+**8. Organización en Sprints** (3 sprints de 2 semanas)
 
 - **Sprint 1 — Análisis y Planificación** (2 semanas): HU-1, HU-2
   - Sprint Goal: "Tener mapeados flujos críticos, SLAs definidos y estrategia de carga aprobada para los 5 microservicios de Poleras Store"
@@ -120,13 +175,15 @@ Crea las siguientes tareas como hijas de HU-3:
 - **Sprint 3 — Ejecución, Análisis y Reporte** (2 semanas): HU-4 (ejecución Load/Stress/Spike/Soak), HU-5
   - Sprint Goal: "Ejecutar ciclo completo de pruebas, identificar punto de quiebre y emitir veredicto go/no-go para Black Friday"
 
-**6. Versiones del proyecto** (Releases)
+**9. Versiones del proyecto** (Releases)
 
 - `v1.0 - Sprint 1`: Análisis y Planificación (Fase 1 + 2)
 - `v2.0 - Sprint 2`: Desarrollo de Scripts y Ambiente (Fase 3 + 4)
 - `v3.0 - Sprint 3`: Ejecución, Análisis y Reporte (Fase 5 + 6)
 
 Por favor crea todo esto en JIRA usando el MCP de Atlassian. Sigue las buenas prácticas de Scrum: jerarquía Epic → Story → Task, Story Points en escala Fibonacci, Sprint Goals documentados.
+
+**Orden de creación recomendado:** Proyecto → Épica → HU-1 → tarea de SLAs → resto de HUs → tareas de HU-3 (con links a SLAs) → tareas de HU-4 (con links a SLAs y scripts) → tareas de HU-5 (con links a SLAs y ejecuciones) → Sprints → Versiones.
 
 ---FIN---
 
@@ -139,7 +196,10 @@ Al ejecutar el prompt, Claude creará automáticamente:
 - 1 proyecto Scrum (`Poleras Store - Performance Testing`)
 - 1 épica (`Black Friday Ready`)
 - 5 historias de usuario (HU-1 a HU-5) con Story Points y criterios de aceptación
-- 6 tareas de scripts k6 con SLAs específicos por servicio
+- 1 tarea de SLAs (fuente de verdad para todos los thresholds)
+- 6 tareas de scripts k6 con referencia y link al ticket de SLAs
+- 5 tareas de ejecución con referencia y link al ticket de SLAs + scripts
+- 5 tareas de análisis con referencia y link al ticket de SLAs + ejecuciones
 - 3 sprints con Sprint Goals documentados
 - 3 versiones del proyecto (v1.0, v2.0, v3.0)
 

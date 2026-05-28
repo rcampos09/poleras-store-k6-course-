@@ -98,35 +98,92 @@ Please create the following following Scrum best practices:
   - Acceptance criteria: technical report with bottlenecks and recommendations, executive report with risk/impact for stakeholders, documented verdict.
   - Story Points: 8
 
-**4. Detailed tasks inside US-3** (one per service + e2e)
+**4. SLA task inside US-1** (create first — this is the source of truth)
 
-Create the following tasks as children of US-3:
+Create this task as a child of US-1 **before any script, execution, or analysis task**:
 
-- `[Script] users-api — auth.test.js`: k6 script for `POST /api/auth/login`. SLA: P95 < 200ms, error rate < 0.5%. Dataset: `data/users.json`.
-- `[Script] products-service — products.test.js`: k6 script for `GET /api/products`. SLA: P95 < 100ms, error rate < 0.5%. No authentication required.
-- `[Script] cart-service — cart.test.js`: k6 script for `POST /api/cart/items` and `GET /api/cart`. SLA: P95 < 150ms, error rate < 0.5%. Requires JWT.
-- `[Script] orders-service — orders.test.js`: k6 script for `POST /api/orders`. SLA: P95 < 200ms, error rate < 1%. Requires JWT and valid cart. Calls cart-service.
-- `[Script] payments-service — payments.test.js`: k6 script for `POST /api/payments/process`. SLA: P95 < 300ms, error rate < 0.1%. Critical service — requires JWT and valid order.
-- `[Script] e2e — e2e.test.js`: k6 script that executes the full purchase flow (login → browse → cart → order → payment). SLA: P95 < 1000ms total, error rate < 1%.
+- `[SLA] Define SLAs and SLOs per microservice`: Document the accepted performance thresholds for each service. These values are the source of truth for all k6 scripts, execution tickets, and analysis tickets.
+  - Description must include the SLA table:
+    | Service | Endpoint | P95 | Error rate |
+    |---|---|---|---|
+    | users-api | POST /api/auth/login | < 200ms | < 0.5% |
+    | products-service | GET /api/products | < 100ms | < 0.5% |
+    | cart-service | POST/GET /api/cart | < 150ms | < 0.5% |
+    | orders-service | POST /api/orders | < 200ms | < 1% |
+    | payments-service | POST /api/payments/process | < 300ms | < 0.1% |
+    | e2e (full flow) | login→cart→order→payment | < 1000ms | < 1% |
+  - Acceptance criteria: table approved by the team, values aligned with system architecture.
 
-**5. Sprint Organization** (3 two-week sprints)
+**5. Detailed tasks inside US-3** (one per service + e2e)
+
+Create the following tasks as children of US-3. **Traceability rule:** each task description must begin with a reference block pointing to the SLA task (created in point 4) indicating the thresholds that apply for that service. Each task must also have a formal **"Relates"** issue link to the SLA task.
+
+Reference block format at the top of each description:
+```
+ℹ️ TECHNICAL REFERENCE — Read the SLA ticket (US-1)
+The thresholds for this service are defined and approved in that ticket: [indicate P95 and error rate for the service].
+These values must be used exactly in the k6 script's `thresholds` block.
+```
+
+- `[Script] users-api — auth.test.js`: k6 script for `POST /api/auth/login`. SLA: P95 < 200ms, error rate < 0.5%. Dataset: `data/users.json`. Store JWT for use in subsequent services. Issue link "Relates" → SLA task.
+- `[Script] products-service — products.test.js`: k6 script for `GET /api/products`. SLA: P95 < 100ms, error rate < 0.5%. No authentication required. Issue link "Relates" → SLA task.
+- `[Script] cart-service — cart.test.js`: k6 script for `POST /api/cart/items` and `GET /api/cart`. SLA: P95 < 150ms, error rate < 0.5%. Requires JWT. Issue link "Relates" → SLA task.
+- `[Script] orders-service — orders.test.js`: k6 script for `POST /api/orders`. SLA: P95 < 200ms, error rate < 1%. Requires JWT and valid cart. Calls cart-service. Issue link "Relates" → SLA task.
+- `[Script] payments-service — payments.test.js`: k6 script for `POST /api/payments/process`. SLA: P95 < 300ms, error rate < 0.1%. Critical service — requires JWT and valid order. Issue link "Relates" → SLA task.
+- `[Script] e2e — e2e.test.js`: k6 script for the full purchase flow (login → browse → cart → order → payment). SLA: P95 < 1000ms total, error rate < 1%. Issue link "Relates" → SLA task.
+
+**6. Detailed tasks inside US-4** (execution per test type)
+
+Create the following tasks as children of US-4. Each task must have **"Relates"** issue links to the SLA task (US-1) and to the relevant script task (US-3), and its description must begin with:
+```
+ℹ️ TECHNICAL REFERENCE
+- SLA reference: see SLA task (US-1)
+- Script to execute: see corresponding script task (US-3)
+The thresholds this execution must meet are defined in the SLA task.
+```
+
+- `[Execution] Smoke Test — all services`: 2 VUs × 1 min per service. Verify all scripts run without errors. Success criterion: error rate = 0%.
+- `[Execution] Load Test — all services`: 100 VUs × 10 min. Validate behavior under normal load. Success criterion: all SLA task thresholds met.
+- `[Execution] Stress Test — find breaking point`: Increase VUs until degradation. Document the system's capacity limit.
+- `[Execution] Spike Test — simulate Black Friday peak`: 2,500 VUs in 2 minutes. Evaluate behavior under extreme peak.
+- `[Execution] Soak Test — validate long-term stability`: 50 VUs × 2 hours. Detect memory leaks or progressive degradation.
+
+**7. Detailed tasks inside US-5** (analysis per test type)
+
+Create the following tasks as children of US-5. Each task must have **"Relates"** issue links to the SLA task (US-1) and to the corresponding execution task (US-4), and its description must begin with:
+```
+ℹ️ TECHNICAL REFERENCE
+- SLA reference: see SLA task (US-1)
+- Results to analyze: see corresponding execution task (US-4)
+The analysis must compare the obtained results against the thresholds defined in the SLA task.
+```
+
+- `[Analysis] Smoke Test Results`: Verify all scripts ran without errors. Confirm environment is ready for load tests.
+- `[Analysis] Load Test Results`: Compare P95 and error rate against SLAs. Identify services that fail to meet thresholds.
+- `[Analysis] Stress Test Results`: Document breaking point, recovery behavior, and most vulnerable services.
+- `[Analysis] Spike Test Results`: Evaluate Black Friday peak impact. Issue estimated risk for the real event.
+- `[Analysis] Final Report — Go/No-Go Verdict`: Consolidate findings from all executions. Generate executive and technical reports. Issue Black Friday verdict.
+
+**8. Sprint Organization** (3 two-week sprints)
 
 - **Sprint 1 — Analysis and Planning** (2 weeks): US-1, US-2
   - Sprint Goal: "Map all critical flows, define SLAs, and get the load strategy approved for all 5 Poleras Store microservices"
 
-- **Sprint 2 — Development and Setup** (2 weeks): US-3, US-4 (partial — scripts + smoke tests)
+- **Sprint 2 — Development and Setup** (2 weeks): US-3, US-4 (partial — scripts + Smoke Test)
   - Sprint Goal: "Develop all 6 k6 scripts using the 5-block pattern and validate the environment through error-free Smoke Tests"
 
 - **Sprint 3 — Execution, Analysis and Reporting** (2 weeks): US-4 (Load/Stress/Spike/Soak runs), US-5
   - Sprint Goal: "Execute the full test cycle, identify the system's breaking point, and issue the go/no-go verdict for Black Friday"
 
-**6. Project Versions** (Releases)
+**9. Project Versions** (Releases)
 
 - `v1.0 - Sprint 1`: Analysis and Planning (Phase 1 + 2)
 - `v2.0 - Sprint 2`: Script Development and Environment (Phase 3 + 4)
 - `v3.0 - Sprint 3`: Execution, Analysis and Reporting (Phase 5 + 6)
 
 Please create everything in JIRA using the Atlassian MCP. Follow Scrum best practices: Epic → Story → Task hierarchy, Story Points in Fibonacci scale, documented Sprint Goals.
+
+**Recommended creation order:** Project → Epic → US-1 → SLA task → remaining USs → US-3 tasks (with links to SLA) → US-4 tasks (with links to SLA + scripts) → US-5 tasks (with links to SLA + executions) → Sprints → Versions.
 
 ---END---
 
@@ -139,7 +196,10 @@ After running the prompt, Claude will automatically create:
 - 1 Scrum project (`Poleras Store - Performance Testing`)
 - 1 epic (`Black Friday Ready`)
 - 5 user stories (US-1 to US-5) with Story Points and acceptance criteria
-- 6 k6 script tasks with service-specific SLAs
+- 1 SLA task (source of truth for all thresholds)
+- 6 k6 script tasks with reference and link to the SLA task
+- 5 execution tasks with reference and link to the SLA task + scripts
+- 5 analysis tasks with reference and link to the SLA task + executions
 - 3 sprints with documented Sprint Goals
 - 3 project versions (v1.0, v2.0, v3.0)
 
